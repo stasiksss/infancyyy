@@ -35,7 +35,7 @@ class MyApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => AuthProvider()),
         ChangeNotifierProvider(create: (_) => FamilyProvider()),
         ChangeNotifierProvider(create: (_) => TaskProvider()),
-        ChangeNotifierProvider(create: (_) => GigaChatProvider()), // Новый провайдер
+        ChangeNotifierProvider(create: (_) => GigaChatProvider()),
       ],
       child: MaterialApp(
         title: 'Infancy',
