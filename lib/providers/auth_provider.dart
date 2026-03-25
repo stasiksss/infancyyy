@@ -124,6 +124,7 @@ class AuthProvider with ChangeNotifier {
       return 'Ошибка входа: ${e.toString()}';
     }
   }
+
   Future<String?> signUp({
     required String email,
     required String password,
@@ -142,6 +143,16 @@ class AuthProvider with ChangeNotifier {
         _userType = userType;
         _userName = name;
 
+        // Создаем запись в таблице users
+        await _supabase.from('users').insert({
+          'id': _currentUser!.id,
+          'email': email,
+          'name': name,
+          'birth_date': birthDate,
+          'user_type': userType,
+          'family_id': null,
+        });
+
         notifyListeners();
       }
       return null;
@@ -149,50 +160,6 @@ class AuthProvider with ChangeNotifier {
       return 'Ошибка регистрации: ${e.toString()}';
     }
   }
-
-/*  Future<String?> signUp({
-    required String email,
-    required String password,
-    required String name,
-    required String birthDate,
-    required String userType,
-  }) async {
-    try {
-      final response = await _supabase.auth.signUp(
-        email: email,
-        password: password,
-      );
-
-      if (response.user != null) {
-        _currentUser = response.user;
-        _userType = userType;
-        _userName = name;
-
-
-        await _supabase.from('users').update({
-          'birth_date': birthDate,
-          'user_type': userType,
-          'name': name,
-          //'family_id': familyId,
-          // 'updated_at': DateTime.now().toIso8601String(),
-        }).eq('id', _currentUser!.id);
-        // // Создаем запись в таблице users с именем
-        // await _supabase.from('users').insert({
-        //   'id': _currentUser!.id,
-        //   'email': email,
-        //   'name': name,
-        //   'birth_date': birthDate,
-        //   'user_type': userType,
-        //   'family_id': null,
-        // });
-
-        notifyListeners();
-      }
-      return null;
-    } catch (e) {
-      return 'Ошибка регистрации: ${e.toString()}';
-    }
-  }*/
 
   // Создание новой семьи (для первого пользователя)
   Future<String?> createNewFamily() async {
@@ -214,7 +181,7 @@ class AuthProvider with ChangeNotifier {
       // Привязываем текущего пользователя к новой семье
       await _supabase.from('users').update({
         'family_id': familyId,
-       // 'updated_at': DateTime.now().toIso8601String(),
+        // 'updated_at': DateTime.now().toIso8601String(),
       }).eq('id', _currentUser!.id);
 
       debugPrint('User updated with family_id: $familyId');
@@ -251,7 +218,7 @@ class AuthProvider with ChangeNotifier {
       // Привязываем текущего пользователя к этой семье
       await _supabase.from('users').update({
         'family_id': familyId,
-       // 'updated_at': DateTime.now().toIso8601String(),
+        // 'updated_at': DateTime.now().toIso8601String(),
       }).eq('id', _currentUser!.id);
 
       // Обновляем локальные данные

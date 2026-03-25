@@ -29,7 +29,7 @@ class ProfileScreen extends StatelessWidget {
                 decoration: _getAvatarDecoration(userName),
                 child: Center(
                   child: Text(
-                    userName.substring(0, 1).toUpperCase(),
+                    userName.isNotEmpty ? userName[0].toUpperCase() : '?',
                     style: const TextStyle(
                       color: Colors.white,
                       fontSize: 36,
@@ -318,7 +318,6 @@ class ProfileScreen extends StatelessWidget {
   }
 
   void _showEditNameDialog(BuildContext context, AuthProvider authProvider) {
-    // ... существующий код диалога редактирования ...
     final textController = TextEditingController(text: authProvider.userName);
     String selectedRole = authProvider.userType ?? 'child';
 

@@ -63,14 +63,15 @@ class _CreateTaskScreenState extends State<CreateTaskScreen> {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
     final taskProvider = Provider.of<TaskProvider>(context, listen: false);
 
-    if (authProvider.familyId == null) {
-      _showError('Сначала создайте семью');
-      setState(() => _isLoading = false);
-      return;
-    }
+    // 👇 УБИРАЕМ ПРОВЕРКУ НА НАЛИЧИЕ СЕМЬИ
+    // if (authProvider.familyId == null) {
+    //   _showError('Сначала создайте семью');
+    //   setState(() => _isLoading = false);
+    //   return;
+    // }
 
     final error = await taskProvider.createTask(
-      familyId: authProvider.familyId!,
+      familyId: authProvider.familyId, // Может быть null
       title: _titleController.text,
       type: 'task',
       description: _descriptionController.text.isNotEmpty

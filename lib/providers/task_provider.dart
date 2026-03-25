@@ -116,7 +116,7 @@ class TaskProvider with ChangeNotifier {
   }
 
   Future<String?> createTask({
-    required String? familyId,
+    required String? familyId,  // 👈 Теперь может быть null
     required String title,
     required String type,
     String? category,
@@ -125,10 +125,10 @@ class TaskProvider with ChangeNotifier {
     List<String>? assignedUserIds,
   }) async {
     try {
-      print('Creating task: $title, type: $type, familyId: $familyId, category: $category');
+      print('Creating task: $title, type: $type, familyId: $familyId');
 
       final taskData = {
-        'family_id': familyId,
+        'family_id': familyId,  // 👈 Может быть null
         'title': title,
         'type': type,
         'category': category,
@@ -139,17 +139,13 @@ class TaskProvider with ChangeNotifier {
 
       taskData.removeWhere((key, value) => value == null);
 
-      print('Task data: $taskData');
-
       final taskResponse = await _supabase
           .from('tasks')
           .insert(taskData)
           .select()
           .single();
 
-      print('Task created successfully: ${taskResponse['id']}');
-
-      // ОБНОВЛЯЕМ СПИСКИ ПОСЛЕ СОЗДАНИЯ
+      // Обновляем списки
       if (type == 'purchase') {
         await loadPurchases(familyId);
       } else if (type == 'wish') {
@@ -157,6 +153,9 @@ class TaskProvider with ChangeNotifier {
       } else {
         if (familyId != null) {
           await loadTasks(familyId);
+        } else {
+          // Если familyId null, загружаем задачи без семьи
+          await loadTasksWithoutFamily();
         }
       }
 
@@ -165,6 +164,29 @@ class TaskProvider with ChangeNotifier {
       print('Error creating task: $e');
       return 'Ошибка создания задачи: ${e.toString()}';
     }
+  }
+
+  Future<void> loadTasksWithoutFamily() async {
+    _isLoading = true;
+    notifyListeners();
+
+    try {
+      final response = await _supabase
+          .from('tasks')
+          .select('*, task_assignments(*)')
+          .filter('family_id', 'is', null)  // 👈 Задачи без семьи
+          .eq('type', 'task')
+          .order('date');
+
+      _tasks = (response as List)
+          .map((json) => TaskModel.fromJson(json))
+          .toList();
+    } catch (e) {
+      debugPrint('Error loading tasks without family: $e');
+    }
+
+    _isLoading = false;
+    notifyListeners();
   }
 
   void toggleTaskCompletion(String taskId, bool completed) {

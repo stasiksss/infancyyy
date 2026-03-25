@@ -39,20 +39,28 @@ class _TasksScreenState extends State<TasksScreen> {
   }
 
   Future<void> _loadData() async {
-    setState(() => _isLoading = true); // 👈 Перед загрузкой показываем спиннер
+    setState(() => _isLoading = true);
 
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
     final taskProvider = Provider.of<TaskProvider>(context, listen: false);
 
     if (authProvider.familyId != null) {
+      // Если есть семья - загружаем задачи семьи
       await Future.wait([
         taskProvider.loadTasks(authProvider.familyId!),
         taskProvider.loadPurchases(authProvider.familyId!),
         taskProvider.loadWishes(authProvider.familyId!),
       ]);
+    } else {
+      // Если нет семьи - загружаем личные задачи
+      await Future.wait([
+        taskProvider.loadTasksWithoutFamily(),
+        taskProvider.loadPurchases(null),  // 👈 личные покупки
+        taskProvider.loadWishes(null),     // 👈 личные желания
+      ]);
     }
 
-    if (mounted) setState(() => _isLoading = false); // 👈 После загрузки скрываем
+    if (mounted) setState(() => _isLoading = false);
   }
 /*  Future<void> _loadData() async {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
