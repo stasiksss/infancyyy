@@ -19,7 +19,6 @@ class _FamilyScreenState extends State<FamilyScreen> {
   void didChangeDependencies() {
     super.didChangeDependencies();
 
-    // Загружаем данные только один раз при первой инициализации
     if (!_isInitialized) {
       _loadFamilyData();
       _isInitialized = true;
@@ -55,7 +54,6 @@ class _FamilyScreenState extends State<FamilyScreen> {
       ),
       body: Consumer2<AuthProvider, FamilyProvider>(
         builder: (context, authProvider, familyProvider, child) {
-          // Если нет семьи, показываем экран создания/присоединения
           if (authProvider.familyId == null) {
             return Center(
               child: Column(
@@ -104,6 +102,7 @@ class _FamilyScreenState extends State<FamilyScreen> {
           }
 
           final familyMembers = familyProvider.familyMembers;
+          final completedTasksCount = familyProvider.completedTasksCount;
 
           return Column(
             children: [
@@ -126,14 +125,16 @@ class _FamilyScreenState extends State<FamilyScreen> {
                       size: 36,
                     ),
                     const SizedBox(width: 16),
-                    Text(
-                      '${familyProvider.completedTasksCount} задач выполнено вместе\nза месяц!',
-                      style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w500,
-                        color: Color(0xFF000000),
+                    Expanded(
+                      child: Text(
+                        '$completedTasksCount задач выполнено вместе\nза месяц!',
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w500,
+                          color: Color(0xFF000000),
+                        ),
+                        textAlign: TextAlign.left,
                       ),
-                      textAlign: TextAlign.left,
                     ),
                   ],
                 ),
@@ -142,17 +143,17 @@ class _FamilyScreenState extends State<FamilyScreen> {
               // Список участников семьи
               Expanded(
                 child: familyMembers.isEmpty
-                    ? Center(
+                    ? const Center(
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      const Icon(
+                      Icon(
                         Icons.people_outline,
                         size: 64,
                         color: Colors.black26,
                       ),
-                      const SizedBox(height: 16),
-                      const Text(
+                      SizedBox(height: 16),
+                      Text(
                         'Нет участников семьи',
                         style: TextStyle(
                           fontSize: 16,
@@ -193,8 +194,8 @@ class _FamilyScreenState extends State<FamilyScreen> {
       decoration: BoxDecoration(
         gradient: const LinearGradient(
           colors: [
-            Color(0xFFFFC0CB), // Розовый
-            Color(0xFFFFD4A3), // Персиковый
+            Color(0xFFFFC0CB),
+            Color(0xFFFFD4A3),
           ],
           begin: Alignment.centerLeft,
           end: Alignment.centerRight,
@@ -220,7 +221,6 @@ class _FamilyScreenState extends State<FamilyScreen> {
               ),
             );
 
-            // Если вернулись с результатом, перезагружаем данные
             if (result == true && mounted) {
               setState(() {
                 _isInitialized = false;
@@ -260,6 +260,11 @@ class _FamilyMemberCard extends StatelessWidget {
 
   const _FamilyMemberCard({Key? key, required this.member}) : super(key: key);
 
+  String _getFirstLetter() {
+    if (member.name.isEmpty) return '?';
+    return member.name.substring(0, 1).toUpperCase();
+  }
+
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -281,14 +286,13 @@ class _FamilyMemberCard extends StatelessWidget {
       ),
       child: Row(
         children: [
-          // Аватар пользователя
           Container(
             width: 50,
             height: 50,
             decoration: _getAvatarDecoration(member.name),
             child: Center(
               child: Text(
-                member.name.substring(0, 1).toUpperCase(),
+                _getFirstLetter(),
                 style: const TextStyle(
                   color: Colors.white,
                   fontSize: 18,
@@ -297,10 +301,7 @@ class _FamilyMemberCard extends StatelessWidget {
               ),
             ),
           ),
-
           const SizedBox(width: 16),
-
-          // Информация о пользователе
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -322,11 +323,10 @@ class _FamilyMemberCard extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 8),
-                // Прогресс выполнения задач на сегодня
                 Row(
                   children: [
                     Text(
-                      'Сегодня ${member.todayCompletedTasks}/${member.todayTotalTasks} задач',
+                      '${member.todayCompletedTasks}/${member.todayTotalTasks} задач выполнено',
                       style: const TextStyle(
                         fontSize: 14,
                         fontWeight: FontWeight.w500,
@@ -338,18 +338,6 @@ class _FamilyMemberCard extends StatelessWidget {
               ],
             ),
           ),
-
-          // Иконка роли
-          // Icon(
-          //   member.role == FamilyRole.parent
-          //       ? Icons.family_restroom_rounded
-          //       : Icons.child_care_rounded,
-          //   color: member.role == FamilyRole.parent
-          //       ? const Color(0xFF2196F3)
-          //       : const Color(0xFFFF9800),
-          //   size: 24,
-          // ),
-          // const SizedBox(width: 12),
         ],
       ),
     );

@@ -39,20 +39,33 @@ class _TasksScreenState extends State<TasksScreen> {
   }
 
   Future<void> _loadData() async {
-    setState(() => _isLoading = true); // 👈 Перед загрузкой показываем спиннер
+    setState(() => _isLoading = true);
 
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
     final taskProvider = Provider.of<TaskProvider>(context, listen: false);
+    final currentUserId = authProvider.currentUser?.id;
 
-    if (authProvider.familyId != null) {
-      await Future.wait([
-        taskProvider.loadTasks(authProvider.familyId!),
-        taskProvider.loadPurchases(authProvider.familyId!),
-        taskProvider.loadWishes(authProvider.familyId!),
-      ]);
+    try {
+      if (currentUserId == null) {
+        taskProvider.prepareGuestMode();
+      } else if (authProvider.familyId != null) {
+        // Если есть семья - загружаем задачи семьи
+        await Future.wait([
+          taskProvider.loadTasks(authProvider.familyId!),
+          taskProvider.loadPurchases(authProvider.familyId!),
+          taskProvider.loadWishes(authProvider.familyId!),
+        ]);
+      } else {
+        // Если нет семьи - загружаем личные задачи
+        await Future.wait([
+          taskProvider.loadTasksWithoutFamily(currentUserId),
+          taskProvider.loadPurchases(null, currentUserId: currentUserId),
+          taskProvider.loadWishes(null, currentUserId: currentUserId),
+        ]);
+      }
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
     }
-
-    if (mounted) setState(() => _isLoading = false); // 👈 После загрузки скрываем
   }
 /*  Future<void> _loadData() async {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
@@ -567,6 +580,10 @@ class _TasksScreenState extends State<TasksScreen> {
         await taskProvider.loadTasks(authProvider.familyId!);
         await taskProvider.loadPurchases(authProvider.familyId!);
         await taskProvider.loadWishes(authProvider.familyId!);
+      } else if (authProvider.currentUser != null) {
+        await taskProvider.loadTasksWithoutFamily(authProvider.currentUser!.id);
+        await taskProvider.loadPurchases(null, currentUserId: authProvider.currentUser!.id);
+        await taskProvider.loadWishes(null, currentUserId: authProvider.currentUser!.id);
       }
     }
   }
@@ -655,8 +672,7 @@ class _NewTaskItem extends StatelessWidget {
                               : Colors.black87,
                         ),
                       ),
-                      if (task.assignedUserIds != null &&
-                          task.assignedUserIds!.isNotEmpty)
+                      if ((task.executorName ?? '').trim().isNotEmpty)
                         Padding(
                           padding: const EdgeInsets.only(top: 4),
                           child: Row(
@@ -668,7 +684,7 @@ class _NewTaskItem extends StatelessWidget {
                               ),
                               const SizedBox(width: 4),
                               Text(
-                                'Анастасия (Вы)',
+                                task.executorName!,
                                 style: TextStyle(
                                   fontSize: 12,
                                   color: Colors.grey[400],

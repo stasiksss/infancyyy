@@ -39,7 +39,9 @@ class _CreateFamilyScreenState extends State<CreateFamilyScreen> {
       if (error != null) {
         _showError(error);
       } else {
-        await familyProvider.loadFamilyMembers(authProvider.familyId!);
+        await familyProvider
+            .loadFamilyMembers(authProvider.familyId!)
+            .timeout(const Duration(seconds: 15));
         _showSuccess('Семья успешно создана!');
         if (mounted) {
           Navigator.pop(context, true); // ← Возвращаем true
@@ -73,7 +75,9 @@ class _CreateFamilyScreenState extends State<CreateFamilyScreen> {
       if (error != null) {
         _showError(error);
       } else {
-        await familyProvider.loadFamilyMembers(authProvider.familyId!);
+        await familyProvider
+            .loadFamilyMembers(authProvider.familyId!)
+            .timeout(const Duration(seconds: 15));
         _showSuccess('Вы успешно присоединились к семье!');
         if (mounted) {
           Navigator.pop(context, true); // ← Возвращаем true

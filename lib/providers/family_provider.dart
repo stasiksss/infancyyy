@@ -24,28 +24,34 @@ class FamilyProvider with ChangeNotifier {
           .select('*')
           .eq('family_id', familyId);
 
-      _familyMembers = (membersResponse as List).map((user) {
-        return FamilyMember(
-          id: user['id'] as String,
-          name: user['name'] as String? ?? 'Неизвестный',
-          role: user['user_type'] == 'parent' ? FamilyRole.parent : FamilyRole.child,
-          email: user['email'] as String?,
-          todayCompletedTasks: 0, // Можно добавить логику подсчета задач
-          todayTotalTasks: 0,
-        );
-      }).toList();
+      if (membersResponse != null && membersResponse is List) {
+        final baseMembers = (membersResponse as List).map((user) {
+          return FamilyMember(
+            id: user['id'] as String,
+            name: user['name'] as String? ?? 'Неизвестный',
+            role: user['user_type'] == 'parent' ? FamilyRole.parent : FamilyRole.child,
+            email: user['email'] as String?,
+            todayCompletedTasks: 0,
+            todayTotalTasks: 0,
+          );
+        }).toList();
+
+        _familyMembers = await _loadMemberTaskStats(baseMembers, familyId);
+      } else {
+        _familyMembers = [];
+      }
 
       // Загружаем статистику выполненных задач
       await _loadCompletedTasksCount(familyId);
 
     } catch (e) {
       debugPrint('Error loading family members: $e');
-      // Для демонстрации используем mock данные
-      _loadMockData();
+      _familyMembers = [];
+      _completedTasksCount = 0;
+    } finally {
+      _isLoading = false;
+      notifyListeners();
     }
-
-    _isLoading = false;
-    notifyListeners();
   }
 
   Future<void> _loadCompletedTasksCount(String familyId) async {
@@ -54,50 +60,65 @@ class FamilyProvider with ChangeNotifier {
           .from('tasks')
           .select('id')
           .eq('family_id', familyId)
-          .eq('completed', true)
-          .gte('updated_at', DateTime.now().subtract(const Duration(days: 30)).toIso8601String());
+          .eq('completed', true);
 
-      _completedTasksCount = response.length;
+      // Безопасная проверка
+      if (response != null && response is List) {
+        _completedTasksCount = (response as List).length;
+      } else {
+        _completedTasksCount = 0;
+      }
     } catch (e) {
       debugPrint('Error loading completed tasks count: $e');
-      _completedTasksCount = 24; // mock данные
+      _completedTasksCount = 0;
     }
   }
 
-  /*
-  TODO Удалить
-   */
-  void _loadMockData() {
-    _familyMembers = [
-      FamilyMember(
-        id: '1',
-        name: 'Марк',
-        role: FamilyRole.parent,
-        todayCompletedTasks: 3,
-        todayTotalTasks: 4,
-      ),
-      FamilyMember(
-        id: '2',
-        name: 'Альбина',
-        role: FamilyRole.parent,
-        todayCompletedTasks: 2,
-        todayTotalTasks: 5,
-      ),
-      FamilyMember(
-        id: '3',
-        name: 'Вероника',
-        role: FamilyRole.child,
-        todayCompletedTasks: 2,
-        todayTotalTasks: 2,
-      ),
-    ];
-    _completedTasksCount = 24;
+  Future<List<FamilyMember>> _loadMemberTaskStats(
+    List<FamilyMember> members,
+    String familyId,
+  ) async {
+    if (members.isEmpty) return members;
+
+    try {
+      final response = await _supabase
+          .from('task_assignments')
+          .select('user_id, tasks!inner(id, completed, family_id)')
+          .eq('tasks.family_id', familyId);
+
+      final totalByUser = <String, int>{};
+      final completedByUser = <String, int>{};
+
+      for (final item in (response as List)) {
+        final row = item as Map<String, dynamic>;
+        final userId = row['user_id'] as String?;
+        final task = row['tasks'] as Map<String, dynamic>?;
+        if (userId == null || task == null) continue;
+
+        totalByUser[userId] = (totalByUser[userId] ?? 0) + 1;
+        if (task['completed'] == true) {
+          completedByUser[userId] = (completedByUser[userId] ?? 0) + 1;
+        }
+      }
+
+      return members
+          .map(
+            (member) => FamilyMember(
+              id: member.id,
+              name: member.name,
+              role: member.role,
+              email: member.email,
+              todayCompletedTasks: completedByUser[member.id] ?? 0,
+              todayTotalTasks: totalByUser[member.id] ?? 0,
+            ),
+          )
+          .toList();
+    } catch (e) {
+      debugPrint('Error loading member task stats: $e');
+      return members;
+    }
   }
 
-  /*
-  ?
-   */
-  // Добавьте этот метод в класс FamilyProvider
   void clearFamilyMembers() {
     _familyMembers = [];
     _completedTasksCount = 0;

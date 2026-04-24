@@ -19,6 +19,8 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   final PageController _pageController = PageController();
   int _selectedIndex = 0;
+  String? _lastLoadedFamilyId;
+  String? _lastLoadedUserId;
 
   final List<Widget> _screens = [
     const TasksScreen(),
@@ -37,12 +39,33 @@ class _HomeScreenState extends State<HomeScreen> {
   void didChangeDependencies() {
     super.didChangeDependencies();
 
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      final authProvider = Provider.of<AuthProvider>(context, listen: false);
-      if (authProvider.familyId != null) {
-        // Можно загружать данные
-      }
-    });
+    _loadDataIfNeeded();
+  }
+
+  Future<void> _loadDataIfNeeded() async {
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    final taskProvider = Provider.of<TaskProvider>(context, listen: false);
+    final currentUserId = authProvider.currentUser?.id;
+    if (currentUserId == null) return;
+
+    final shouldReload =
+        _lastLoadedFamilyId != authProvider.familyId ||
+        _lastLoadedUserId != currentUserId;
+
+    if (!shouldReload) return;
+
+    _lastLoadedFamilyId = authProvider.familyId;
+    _lastLoadedUserId = currentUserId;
+
+    if (authProvider.familyId != null) {
+      await taskProvider.loadTasks(authProvider.familyId!);
+      await taskProvider.loadPurchases(authProvider.familyId!);
+      await taskProvider.loadWishes(authProvider.familyId!);
+    } else {
+      await taskProvider.loadTasksWithoutFamily(currentUserId);
+      await taskProvider.loadPurchases(null, currentUserId: currentUserId);
+      await taskProvider.loadWishes(null, currentUserId: currentUserId);
+    }
   }
 
   @override
@@ -74,15 +97,6 @@ class _HomeScreenState extends State<HomeScreen> {
             body: Center(child: CircularProgressIndicator()),
           );
         }
-
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          final taskProvider = Provider.of<TaskProvider>(context, listen: false);
-          if (auth.familyId != null) {
-            taskProvider.loadTasks(auth.familyId!);
-            taskProvider.loadPurchases(auth.familyId!);
-            taskProvider.loadWishes(auth.familyId!);
-          }
-        });
 
         return Scaffold(
           body: PageView(

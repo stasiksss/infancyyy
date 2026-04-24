@@ -1,4 +1,5 @@
 import 'package:family_planner/presentation/providers/gigachat_provider.dart';
+import 'config/supabase_config.dart';
 import 'package:family_planner/presentation/screens/splash_screen.dart';
 import 'package:family_planner/providers/family_provider.dart';
 import 'package:flutter/material.dart';
@@ -11,8 +12,8 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   await Supabase.initialize(
-    url: 'https://xhmvrrsmncnxuxerlnbn.supabase.co',
-    anonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhobXZycnNtbmNueHV4ZXJsbmJuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjAzODQzODksImV4cCI6MjA3NTk2MDM4OX0.599elK4h4c6bt-tYUuFHHtmzsqcZ55tbyMU0T4QmZ5w',
+    url: SupabaseConfig.url,
+    anonKey: SupabaseConfig.anonKey,
     authOptions: const FlutterAuthClientOptions(
       authFlowType: AuthFlowType.pkce,
       autoRefreshToken: true,
