@@ -18,6 +18,11 @@ class TaskProvider with ChangeNotifier {
   List<TaskModel> get wishes => _wishes;
   bool get isLoading => _isLoading;
 
+  void prepareGuestMode() {
+    _isLoading = false;
+    notifyListeners();
+  }
+
   Future<void> loadTasks(String familyId) async {
     _isLoading = true;
     notifyListeners();
@@ -25,7 +30,7 @@ class TaskProvider with ChangeNotifier {
     try {
       final response = await _supabase
           .from('tasks')
-          .select('*, task_assignments(*)')
+          .select('*, task_assignments(user_id, users(name))')
           .eq('family_id', familyId)
           .eq('type', 'task')
           .order('date');
@@ -41,14 +46,22 @@ class TaskProvider with ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> loadPurchases(String? familyId) async {
+  Future<void> loadPurchases(String? familyId, {String? currentUserId}) async {
     try {
       debugPrint('Loading purchases for familyId: $familyId');
 
-      final response = await _supabase
-          .from('tasks')
-          .select()
-          .eq('type', 'purchase');
+      final response = familyId != null
+          ? await _supabase
+              .from('tasks')
+              .select('*, task_assignments(user_id, users(name))')
+              .eq('family_id', familyId)
+              .eq('type', 'purchase')
+          : await _supabase
+              .from('tasks')
+              .select('*, task_assignments!inner(user_id, users(name))')
+              .filter('family_id', 'is', null)
+              .eq('type', 'purchase')
+              .eq('task_assignments.user_id', currentUserId!);
 
       _purchases = (response as List)
           .map((json) => TaskModel.fromJson(json))
@@ -62,12 +75,12 @@ class TaskProvider with ChangeNotifier {
     }
   }
 
-  Future<void> loadWishes(String? familyId) async {
+  Future<void> loadWishes(String? familyId, {String? currentUserId}) async {
     try {
       if (familyId != null) {
         final response = await _supabase
             .from('tasks')
-            .select()
+            .select('*, task_assignments(user_id, users(name))')
             .eq('family_id', familyId)
             .eq('type', 'wish');
 
@@ -77,9 +90,10 @@ class TaskProvider with ChangeNotifier {
       } else {
         final response = await _supabase
             .from('tasks')
-            .select()
+            .select('*, task_assignments!inner(user_id, users(name))')
             .filter('family_id', 'is', null)
-            .eq('type', 'wish');
+            .eq('type', 'wish')
+            .eq('task_assignments.user_id', currentUserId!);
 
         _wishes = (response as List)
             .map((json) => TaskModel.fromJson(json))
@@ -117,13 +131,37 @@ class TaskProvider with ChangeNotifier {
 
   Future<String?> createTask({
     required String? familyId,  // 👈 Теперь может быть null
+    required String? creatorUserId,
     required String title,
     required String type,
     String? category,
     String? description,
     DateTime? date,
-    List<String>? assignedUserIds,
+    String? executorUserId,
   }) async {
+    if (creatorUserId == null) {
+      final localTask = TaskModel(
+        id: 'local_${DateTime.now().millisecondsSinceEpoch}',
+        familyId: null,
+        title: title,
+        type: TaskType.fromString(type),
+        category: category,
+        description: description,
+        date: date,
+        completed: false,
+      );
+
+      if (type == 'purchase') {
+        _purchases.insert(0, localTask);
+      } else if (type == 'wish') {
+        _wishes.insert(0, localTask);
+      } else {
+        _tasks.insert(0, localTask);
+      }
+      notifyListeners();
+      return null;
+    }
+
     try {
       print('Creating task: $title, type: $type, familyId: $familyId');
 
@@ -143,20 +181,15 @@ class TaskProvider with ChangeNotifier {
           .from('tasks')
           .insert(taskData)
           .select()
-          .single();
+          .single()
+          .timeout(const Duration(seconds: 15));
 
-      // Обновляем списки
-      if (type == 'purchase') {
-        await loadPurchases(familyId);
-      } else if (type == 'wish') {
-        await loadWishes(familyId);
-      } else {
-        if (familyId != null) {
-          await loadTasks(familyId);
-        } else {
-          // Если familyId null, загружаем задачи без семьи
-          await loadTasksWithoutFamily();
-        }
+      final selectedExecutorId = executorUserId ?? (familyId == null ? creatorUserId : null);
+      if (selectedExecutorId != null) {
+        await _supabase.from('task_assignments').insert({
+          'task_id': taskResponse['id'],
+          'user_id': selectedExecutorId,
+        }).timeout(const Duration(seconds: 15));
       }
 
       return null;
@@ -166,16 +199,17 @@ class TaskProvider with ChangeNotifier {
     }
   }
 
-  Future<void> loadTasksWithoutFamily() async {
+  Future<void> loadTasksWithoutFamily(String currentUserId) async {
     _isLoading = true;
     notifyListeners();
 
     try {
       final response = await _supabase
           .from('tasks')
-          .select('*, task_assignments(*)')
+          .select('*, task_assignments!inner(user_id, users(name))')
           .filter('family_id', 'is', null)  // 👈 Задачи без семьи
           .eq('type', 'task')
+          .eq('task_assignments.user_id', currentUserId)
           .order('date');
 
       _tasks = (response as List)
@@ -286,7 +320,9 @@ class TaskProvider with ChangeNotifier {
   }
 
   Future<void> loadPersonalPurchases() async {
-    await loadPurchases(null);
+    final currentUser = _supabase.auth.currentUser;
+    if (currentUser == null) return;
+    await loadPurchases(null, currentUserId: currentUser.id);
   }
 
   // Добавляем этот метод в класс TaskProvider

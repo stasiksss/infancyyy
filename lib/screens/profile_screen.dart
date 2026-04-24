@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../presentation/screens/auth/UnifiedAuthScreen.dart';
 import '../providers/auth_provider.dart';
 import '../providers/family_provider.dart';
 import 'welcome_screen.dart';
@@ -12,6 +13,56 @@ class ProfileScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final authProvider = Provider.of<AuthProvider>(context);
     final familyProvider = Provider.of<FamilyProvider>(context);
+    if (authProvider.currentUser == null) {
+      return Scaffold(
+        backgroundColor: const Color(0xFFF5F5F5),
+        body: SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.all(24.0),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Icon(Icons.account_circle_outlined, size: 96, color: Colors.black26),
+                const SizedBox(height: 20),
+                const Text(
+                  'Вы используете приложение без аккаунта',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.w600),
+                ),
+                const SizedBox(height: 12),
+                const Text(
+                  'Войдите или зарегистрируйтесь, чтобы синхронизировать задачи между устройствами.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(fontSize: 14, color: Colors.black54),
+                ),
+                const SizedBox(height: 28),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (_) => const UnifiedAuthScreen()),
+                      );
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFFFFBFA0),
+                      foregroundColor: Colors.black87,
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                    ),
+                    child: const Text('Войти / Зарегистрироваться'),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
     final userName = authProvider.userName ?? 'Пользователь';
     debugPrint("ProfileScreen build" + userName);
     return Scaffold(
@@ -215,10 +266,12 @@ class ProfileScreen extends StatelessWidget {
 
   // Функция выхода из семьи
   Future<void> _leaveFamily(BuildContext context, AuthProvider authProvider, FamilyProvider familyProvider) async {
+    final rootNavigator = Navigator.of(context, rootNavigator: true);
     try {
       // Показываем индикатор загрузки
       showDialog(
         context: context,
+        useRootNavigator: true,
         barrierDismissible: false,
         builder: (context) => const Center(
           child: CircularProgressIndicator(),
@@ -228,8 +281,8 @@ class ProfileScreen extends StatelessWidget {
       // Вызываем метод выхода из семьи
       final error = await authProvider.leaveFamily();
 
-      if (context.mounted) {
-        Navigator.of(context).pop(); // Закрываем индикатор загрузки
+      if (rootNavigator.canPop()) {
+        rootNavigator.pop(); // Закрываем индикатор загрузки
       }
 
       if (error == null && context.mounted) {
@@ -253,8 +306,10 @@ class ProfileScreen extends StatelessWidget {
         );
       }
     } catch (e) {
+      if (rootNavigator.canPop()) {
+        rootNavigator.pop(); // Закрываем индикатор загрузки
+      }
       if (context.mounted) {
-        Navigator.of(context).pop(); // Закрываем индикатор загрузки
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Ошибка: $e'),
@@ -495,9 +550,12 @@ class ProfileScreen extends StatelessWidget {
                         onPressed: () async {
                           final newName = textController.text.trim();
                           if (newName.isNotEmpty) {
-                            // Обновляем и имя, и роль
+                            // Сначала обновляем имя
                             final nameError = await authProvider.updateUserName(newName);
-                            final roleError = await authProvider.updateUserRole(selectedRole);
+                            String? roleError;
+                            if (selectedRole != authProvider.userType) {
+                              roleError = await authProvider.updateUserRole(selectedRole);
+                            }
 
                             if (nameError == null && roleError == null && context.mounted) {
                               Navigator.of(context).pop();

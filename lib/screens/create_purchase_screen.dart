@@ -44,6 +44,7 @@ class _CreatePurchaseScreenState extends State<CreatePurchaseScreen> {
 
     final error = await taskProvider.createTask(
       familyId: familyId, // Теперь можно передавать null
+      creatorUserId: authProvider.currentUser?.id,
       title: _titleController.text,
       type: 'purchase',
       category: _category,
@@ -56,7 +57,12 @@ class _CreatePurchaseScreenState extends State<CreatePurchaseScreen> {
     } else {
       if (mounted) {
         // Дополнительно обновляем данные
-        await taskProvider.loadPurchases(familyId);
+        if (authProvider.currentUser != null) {
+          await taskProvider.loadPurchases(
+            familyId,
+            currentUserId: authProvider.currentUser!.id,
+          );
+        }
         Navigator.pop(context);
       }
     }

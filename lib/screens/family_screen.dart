@@ -326,7 +326,7 @@ class _FamilyMemberCard extends StatelessWidget {
                 Row(
                   children: [
                     Text(
-                      'Сегодня ${member.todayCompletedTasks}/${member.todayTotalTasks} задач',
+                      '${member.todayCompletedTasks}/${member.todayTotalTasks} задач выполнено',
                       style: const TextStyle(
                         fontSize: 14,
                         fontWeight: FontWeight.w500,

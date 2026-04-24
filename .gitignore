@@ -43,3 +43,28 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# Gradle
+android/.gradle/
+build/
+.gradle/
+
+# Local configuration file
+android/key.properties
+
+# Keystore
+*.jks
+*.keystore
+
+# Flutter native files
+.flutter-plugins
+.flutter-plugins-dependencies
+
+# Generated asset files
+assets/
+
+# Environment files
+.env
+.env.local
+.env.production
+.env.*.local

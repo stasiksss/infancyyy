@@ -10,6 +10,8 @@ class TaskModel {
   final DateTime? date;
   bool completed;
   final List<String> assignedUserIds;
+  final String? executorUserId;
+  final String? executorName;
 
   TaskModel({
     required this.id,
@@ -21,14 +23,27 @@ class TaskModel {
     this.date,
     this.completed = false,
     List<String>? assignedUserIds,
+    this.executorUserId,
+    this.executorName,
   }) : assignedUserIds = assignedUserIds ?? [];
 
   factory TaskModel.fromJson(Map<String, dynamic> json) {
     List<String> assignedIds = [];
+    String? executorId;
+    String? executorName;
+
     if (json['task_assignments'] != null) {
-      assignedIds = (json['task_assignments'] as List)
-          .map((a) => a['user_id'] as String)
-          .toList();
+      final assignments = json['task_assignments'] as List;
+      assignedIds = assignments.map((a) => a['user_id'] as String).toList();
+
+      if (assignments.isNotEmpty) {
+        final first = assignments.first as Map<String, dynamic>;
+        executorId = first['user_id'] as String?;
+        final users = first['users'];
+        if (users is Map<String, dynamic>) {
+          executorName = users['name'] as String?;
+        }
+      }
     }
 
     return TaskModel(
@@ -41,6 +56,8 @@ class TaskModel {
       date: json['date'] != null ? DateTime.parse(json['date'] as String) : null,
       completed: json['completed'] as bool? ?? false,
       assignedUserIds: assignedIds,
+      executorUserId: executorId,
+      executorName: executorName,
     );
   }
 
@@ -67,6 +84,8 @@ class TaskModel {
     DateTime? date,
     bool? completed,
     List<String>? assignedUserIds,
+    String? executorUserId,
+    String? executorName,
   }) {
     return TaskModel(
       id: id ?? this.id,
@@ -78,6 +97,8 @@ class TaskModel {
       date: date ?? this.date,
       completed: completed ?? this.completed,
       assignedUserIds: assignedUserIds ?? this.assignedUserIds,
+      executorUserId: executorUserId ?? this.executorUserId,
+      executorName: executorName ?? this.executorName,
     );
   }
 
@@ -93,7 +114,9 @@ class TaskModel {
         other.description == description &&
         other.date == date &&
         other.completed == completed &&
-        listEquals(other.assignedUserIds, assignedUserIds);
+        listEquals(other.assignedUserIds, assignedUserIds) &&
+        other.executorUserId == executorUserId &&
+        other.executorName == executorName;
   }
 
   @override
@@ -108,6 +131,8 @@ class TaskModel {
       date,
       completed,
       Object.hashAll(assignedUserIds),
+      executorUserId,
+      executorName,
     );
   }
 

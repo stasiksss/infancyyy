@@ -71,6 +71,7 @@ class _CreateWishScreenState extends State<CreateWishScreen> {
 
     final error = await taskProvider.createTask(
       familyId: authProvider.familyId!,
+      creatorUserId: authProvider.currentUser!.id,
       title: _titleController.text,
       type: 'wish',
       description: _descriptionController.text.isNotEmpty 

@@ -237,10 +237,13 @@ class AuthProvider with ChangeNotifier {
 
   Future<String?> updateUserName(String newName) async {
     try {
+      final user = _supabase.auth.currentUser;
+      if (user == null) return 'Пользователь не авторизован';
+
       await _supabase
           .from('users')
           .update({'name': newName})
-          .eq('id', _currentUser!.id);
+          .eq('id', user.id);
 
       _userName = newName;
       notifyListeners();
@@ -252,10 +255,13 @@ class AuthProvider with ChangeNotifier {
 
   Future<String?> updateUserRole(String newRole) async {
     try {
+      final user = _supabase.auth.currentUser;
+      if (user == null) return 'Пользователь не авторизован';
+
       await _supabase
           .from('users')
           .update({'user_type': newRole})
-          .eq('id', _currentUser!.id);
+          .eq('id', user.id);
 
       _userType = newRole;
       notifyListeners();

@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../providers/task_provider.dart';
 import '../../../providers/auth_provider.dart';
+import '../../../models/family_member.dart';
 
 class CreateTaskScreen extends StatefulWidget {
   const CreateTaskScreen({super.key});
@@ -12,10 +14,21 @@ class CreateTaskScreen extends StatefulWidget {
 }
 
 class _CreateTaskScreenState extends State<CreateTaskScreen> {
+  final _supabase = Supabase.instance.client;
   final _titleController = TextEditingController();
   final _descriptionController = TextEditingController();
   final _dateController = TextEditingController();
   bool _isLoading = false;
+  List<FamilyMember> _familyMembers = [];
+  String? _selectedExecutorId;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _loadFamilyMembers();
+    });
+  }
 
   @override
   void dispose() {
@@ -72,6 +85,7 @@ class _CreateTaskScreenState extends State<CreateTaskScreen> {
 
     final error = await taskProvider.createTask(
       familyId: authProvider.familyId, // Может быть null
+      creatorUserId: authProvider.currentUser?.id,
       title: _titleController.text,
       type: 'task',
       description: _descriptionController.text.isNotEmpty
@@ -80,6 +94,7 @@ class _CreateTaskScreenState extends State<CreateTaskScreen> {
       date: _dateController.text.isNotEmpty
           ? DateTime.parse(_dateController.text)
           : null,
+      executorUserId: _selectedExecutorId,
     );
 
     setState(() => _isLoading = false);
@@ -97,6 +112,37 @@ class _CreateTaskScreenState extends State<CreateTaskScreen> {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text(message)),
     );
+  }
+
+  Future<void> _loadFamilyMembers() async {
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    final currentUser = authProvider.currentUser;
+    if (currentUser == null || authProvider.familyId == null) return;
+
+    try {
+      final response = await _supabase
+          .from('users')
+          .select('id, name, user_type, email')
+          .eq('family_id', authProvider.familyId!);
+
+      final members = (response as List).map((user) {
+        return FamilyMember(
+          id: user['id'] as String,
+          name: (user['name'] as String?)?.trim().isNotEmpty == true
+              ? user['name'] as String
+              : 'Участник семьи',
+          role: user['user_type'] == 'parent' ? FamilyRole.parent : FamilyRole.child,
+          email: user['email'] as String?,
+        );
+      }).toList();
+
+      if (!mounted) return;
+      setState(() {
+        _familyMembers = members;
+      });
+    } catch (_) {
+      // Keep form usable even if assignee loading fails.
+    }
   }
 
   @override
@@ -149,6 +195,16 @@ class _CreateTaskScreenState extends State<CreateTaskScreen> {
               hint: 'Описание',
               maxLines: 3,
             ),
+            if (_familyMembers.isNotEmpty) ...[
+              const SizedBox(height: 16),
+              _ExecutorDropdown(
+                members: _familyMembers,
+                selectedId: _selectedExecutorId,
+                onChanged: (value) {
+                  setState(() => _selectedExecutorId = value);
+                },
+              ),
+            ],
             const SizedBox(height: 40),
             _GradientButton(
               text: 'Создать',
@@ -243,6 +299,48 @@ class _GradientButton extends StatelessWidget {
               ),
             ),
           ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ExecutorDropdown extends StatelessWidget {
+  final List<FamilyMember> members;
+  final String? selectedId;
+  final ValueChanged<String?> onChanged;
+
+  const _ExecutorDropdown({
+    required this.members,
+    required this.selectedId,
+    required this.onChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
+      decoration: BoxDecoration(
+        border: Border.all(color: Colors.black26),
+        borderRadius: BorderRadius.circular(28),
+      ),
+      child: DropdownButtonHideUnderline(
+        child: DropdownButton<String>(
+          value: selectedId,
+          isExpanded: true,
+          hint: const Text(
+            'Исполнитель задачи',
+            style: TextStyle(color: Colors.black38),
+          ),
+          items: members
+              .map(
+                (member) => DropdownMenuItem<String>(
+                  value: member.id,
+                  child: Text(member.name),
+                ),
+              )
+              .toList(),
+          onChanged: onChanged,
         ),
       ),
     );
